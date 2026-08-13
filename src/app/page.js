@@ -1,105 +1,209 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
+
+const SUGGESTIONS = [
+  "Explain quantum computing in simple terms",
+  "Write a creative short story about AI",
+  "What are the best practices for React?",
+  "Help me debug a JavaScript error",
+];
 
 export default function Home() {
   const [message, setMessage] = useState("");
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
+  const messagesEndRef = useRef(null);
+  const textareaRef = useRef(null);
 
-  async function sendMessage() {
-    if (!message.trim()) return;
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, loading]);
 
-    const userMessage = {
-      role: "user",
-      content: message,
-    };
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = "auto";
+      textareaRef.current.style.height =
+        Math.min(textareaRef.current.scrollHeight, 150) + "px";
+    }
+  }, [message]);
 
+  async function sendMessage(text) {
+    const msg = text || message;
+    if (!msg.trim() || loading) return;
+
+    const userMessage = { role: "user", content: msg.trim() };
     const updatedMessages = [...messages, userMessage];
 
     setMessages(updatedMessages);
     setMessage("");
     setLoading(true);
 
+    if (textareaRef.current) {
+      textareaRef.current.style.height = "auto";
+    }
+
     try {
       const res = await fetch("/api/chat", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          messages: updatedMessages,
-        }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages: updatedMessages }),
       });
 
-      const data = await res.json();
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => null);
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: "assistant",
+            content: `${errorData?.error || "Something went wrong."}`,
+          },
+        ]);
+        return;
+      }
 
-      const aiMessage = {
-        role: "assistant",
-        content: data.response,
-      };
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let aiResponse = "";
 
-      setMessages((previousMessages) => [
-        ...previousMessages,
-        aiMessage,
-      ]);
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value, { stream: true });
+        aiResponse += chunk;
+
+        setMessages([
+          ...updatedMessages,
+          {
+            role: "assistant",
+            content: aiResponse,
+          },
+        ]);
+      }
     } catch (error) {
       console.error(error);
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          content: "⚠️ Network error. Please check your connection and try again.",
+        },
+      ]);
     } finally {
       setLoading(false);
+      textareaRef.current?.focus();
     }
   }
 
+  function handleKeyDown(e) {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  }
+
+  const hasMessages = messages.length > 0;
+
   return (
-    <main className="min-h-screen p-10">
-      <div className="max-w-3xl mx-auto">
-
-        <h1 className="text-3xl font-bold mb-8">
-          My AI Chat
-        </h1>
-
-        <div className="space-y-4 mb-8">
-          {messages.map((msg, index) => (
-            <div
-              key={index}
-              className={`p-4 rounded-lg ${msg.role === "user"
-                ? "bg-blue-100"
-                : "bg-gray-100"
-                }`}
-            >
-              <strong>
-                {msg.role === "user" ? "You" : "AI"}
-              </strong>
-
-              <p className="mt-2 whitespace-pre-wrap">
-                {msg.content}
-              </p>
-            </div>
-          ))}
-
-          {loading && (
-            <div className="bg-gray-500 text-black p-4 rounded-lg">
-              AI is thinking...
-            </div>
-          )}
+    <div className="chat-app">
+      {/* Header */}
+      <header className="chat-header">
+        <div className="chat-header-inner">
+          <div className="chat-header-logo">✦</div>
+          <span className="chat-header-title">AI Chat</span>
+          <span className="chat-header-badge">Gemini</span>
         </div>
+      </header>
 
-        <textarea
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
-          placeholder="Ask something..."
-          className="w-full border rounded-lg p-4 min-h-32"
-        />
+      {/* Messages or Empty State */}
+      {!hasMessages ? (
+        <div className="chat-empty">
+          <div className="chat-empty-logo">✦</div>
+          <h1 className="chat-empty-title">How can I help you today?</h1>
+          <p className="chat-empty-sub">
+            I'm powered by Google Gemini. Ask me anything — from coding help to
+            creative writing.
+          </p>
+          <div className="chat-suggestions">
+            {SUGGESTIONS.map((s, i) => (
+              <button
+                key={i}
+                className="chat-suggestion-btn"
+                onClick={() => sendMessage(s)}
+              >
+                {s}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <div className="chat-messages">
+          <div className="chat-messages-inner">
+            {messages.map((msg, index) => (
+              <div key={index} className={`message-row ${msg.role}`}>
+                <div className={`message-avatar ${msg.role === "user" ? "user" : "ai"}`}>
+                  {msg.role === "user" ? "U" : "✦"}
+                </div>
+                <div className="message-content">
+                  <div className="message-label">
+                    {msg.role === "user" ? "You" : "AI"}
+                  </div>
+                  <div className="message-bubble">{msg.content}</div>
+                </div>
+              </div>
+            ))}
 
-        <button
-          onClick={sendMessage}
-          disabled={loading}
-          className="mt-4 px-6 py-3 bg-black text-white rounded-lg"
-        >
-          {loading ? "Thinking..." : "Send"}
-        </button>
+            {loading && (
+              <div className="typing-indicator">
+                <div className="message-avatar ai">✦</div>
+                <div className="message-content">
+                  <div className="message-label">AI</div>
+                  <div className="typing-dots">
+                    <div className="typing-dot" />
+                    <div className="typing-dot" />
+                    <div className="typing-dot" />
+                  </div>
+                </div>
+              </div>
+            )}
 
+            <div ref={messagesEndRef} />
+          </div>
+        </div>
+      )}
+
+      {/* Input Area */}
+      <div className="chat-input-area">
+        <div className="chat-input-container">
+          <div className="chat-input-box">
+            <textarea
+              ref={textareaRef}
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Message AI..."
+              rows={1}
+              id="chat-input"
+            />
+            <button
+              onClick={() => sendMessage()}
+              disabled={loading || !message.trim()}
+              className="chat-send-btn"
+              id="send-button"
+              aria-label="Send message"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="22" y1="2" x2="11" y2="13" />
+                <polygon points="22 2 15 22 11 13 2 9 22 2" />
+              </svg>
+            </button>
+          </div>
+          <p className="chat-footer-text">
+            AI can make mistakes. Consider checking important information.
+          </p>
+        </div>
       </div>
-    </main>
+    </div>
   );
 }

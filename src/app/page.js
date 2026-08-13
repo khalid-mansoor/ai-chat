@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import ReactMarkdown from "react-markdown";
 
 const SUGGESTIONS = [
   "Explain quantum computing in simple terms",
@@ -149,7 +150,13 @@ export default function Home() {
                   <div className="message-label">
                     {msg.role === "user" ? "You" : "AI"}
                   </div>
-                  <div className="message-bubble">{msg.content}</div>
+                  <div className="message-bubble">
+                    {msg.role === "assistant" ? (
+                      <ReactMarkdown>{msg.content}</ReactMarkdown>
+                    ) : (
+                      msg.content
+                    )}
+                  </div>
                 </div>
               </div>
             ))}

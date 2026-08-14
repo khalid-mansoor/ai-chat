@@ -3,17 +3,12 @@ import { generateText, streamText } from "ai";
 
 export async function POST(req) {
     try {
-
-
         const { messages } = await req.json();
 
         // const result = await generateText({
         //     model: google("gemini-3.5-flash"),
         //     prompt: messages,
         // });
-
-
-
         // return Response.json({
         //     response: result.text,
         // });

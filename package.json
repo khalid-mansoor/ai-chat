@@ -11,11 +11,14 @@
   "dependencies": {
     "@ai-sdk/google": "^4.0.43",
     "@ai-sdk/openai": "^4.0.41",
-    "ai": "^7.0.64",
+    "@ai-sdk/react": "^4.0.69",
+    "@tailwindcss/typography": "^0.5.20",
+    "ai": "^7.0.66",
     "next": "16.3.0",
     "react": "19.2.8",
     "react-dom": "19.2.8",
-    "react-markdown": "^10.1.0"
+    "react-markdown": "^10.1.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

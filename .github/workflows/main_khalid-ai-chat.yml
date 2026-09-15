@@ -29,25 +29,16 @@ jobs:
       - name: Build Next.js application
         run: npm run build
 
-      - name: Prepare deployment package
+      - name: Prepare standalone deployment
         run: |
-          rm -rf deploy
-          mkdir deploy
+          cp -r public .next/standalone/
+          cp -r .next/static .next/standalone/.next/
 
-          cp -r .next deploy/.next
-          cp -r public deploy/public
-          cp package.json deploy/package.json
-          cp package-lock.json deploy/package-lock.json
-
-      - name: Install production dependencies
-        working-directory: deploy
-        run: npm ci --omit=dev
-
-      - name: Upload deployment artifact
+      - name: Upload standalone artifact
         uses: actions/upload-artifact@v4
         with:
-          name: nextjs-app
-          path: deploy
+          name: nextjs-standalone
+          path: .next/standalone
 
   deploy:
     runs-on: ubuntu-latest
@@ -59,10 +50,10 @@ jobs:
       contents: read
 
     steps:
-      - name: Download deployment artifact
+      - name: Download standalone artifact
         uses: actions/download-artifact@v4
         with:
-          name: nextjs-app
+          name: nextjs-standalone
           path: .
 
       - name: Login to Azure

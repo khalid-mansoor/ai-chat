@@ -54,7 +54,12 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: nextjs-standalone
-          path: .
+          path: deploy
+
+      - name: Create deployment ZIP
+        run: |
+          cd deploy
+          zip -r ../nextjs-app.zip .
 
       - name: Login to Azure
         uses: azure/login@v2
@@ -63,9 +68,10 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_8282A7AC3E9741EA94878253C0F6CC9E }}
 
-      - name: Deploy to Azure Web App
-        uses: azure/webapps-deploy@v3
-        with:
-          app-name: khalid-ai-chat
-          slot-name: Production
-          package: .
+      - name: Deploy ZIP to Azure App Service
+        run: |
+          az webapp deploy \
+            --resource-group web-azure-practice \
+            --name khalid-ai-chat \
+            --src-path nextjs-app.zip \
+            --type zip

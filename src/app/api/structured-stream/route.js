@@ -20,30 +20,13 @@ export async function POST(req) {
 
         const result = streamObject({
             model: google("gemini-3.5-flash"),
-
             schema: productSchema,
-
-            prompt: `
-        Analyze this product:
-
-        ${product}
-
-        Provide a detailed structured analysis.
-      `,
+            prompt: `Analyze this product:${product}Provide a detailed structured analysis.`,
         });
 
         return result.toTextStreamResponse();
 
     } catch (error) {
-        console.error(error);
-
-        return Response.json(
-            {
-                error: "Something went wrong",
-            },
-            {
-                status: 500,
-            }
-        );
+        return Response.json({ error: "Something went wrong", }, { status: 500, });
     }
 }

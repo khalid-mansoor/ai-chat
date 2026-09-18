@@ -33,12 +33,12 @@ jobs:
       - name: Build Next.js application
         run: npm run build
 
-      - name: Verify standalone output
+      - name: Verify standalone server
         run: |
           test -f .next/standalone/server.js
+          echo "Standalone server found"
 
       - name: Prepare standalone deployment
-        shell: bash
         run: |
           if [ -d public ]; then
             cp -r public .next/standalone/public
@@ -55,7 +55,9 @@ jobs:
       - name: Verify deployment ZIP
         run: |
           test -f nextjs-app.zip
-          unzip -l nextjs-app.zip | grep -q 'server.js'
+          echo "ZIP created successfully"
+          unzip -l nextjs-app.zip | head -30
+          unzip -l nextjs-app.zip | grep "server.js"
 
       - name: Upload deployment artifact
         uses: actions/upload-artifact@v4
@@ -79,10 +81,10 @@ jobs:
           name: nextjs-app
           path: .
 
-      - name: Verify downloaded artifact
+      - name: Verify downloaded ZIP
         run: |
           test -f nextjs-app.zip
-          unzip -l nextjs-app.zip | grep -q 'server.js'
+          unzip -l nextjs-app.zip | grep "server.js"
 
       - name: Login to Azure
         uses: azure/login@v2
@@ -91,11 +93,9 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_8282A7AC3E9741EA94878253C0F6CC9E }}
 
-      - name: Deploy standalone Next.js application
+      - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v3
         with:
           app-name: ${{ env.AZURE_WEBAPP_NAME }}
-          slot-name: Production
           package: ./nextjs-app.zip
           startup-command: node server.js
-          clean: true

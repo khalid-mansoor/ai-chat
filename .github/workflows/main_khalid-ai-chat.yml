@@ -6,6 +6,10 @@ on:
       - main
   workflow_dispatch:
 
+env:
+  NODE_VERSION: '20.x'
+  AZURE_WEBAPP_NAME: khalid-ai-chat
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -20,7 +24,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '24.x'
+          node-version: ${{ env.NODE_VERSION }}
           cache: npm
 
       - name: Install dependencies
@@ -29,21 +33,36 @@ jobs:
       - name: Build Next.js application
         run: npm run build
 
-      - name: Prepare standalone deployment
+      - name: Verify standalone output
         run: |
-          cp -r public .next/standalone/
-          cp -r .next/static .next/standalone/.next/
+          test -f .next/standalone/server.js
+
+      - name: Prepare standalone deployment
+        shell: bash
+        run: |
+          if [ -d public ]; then
+            cp -r public .next/standalone/public
+          fi
+
+          mkdir -p .next/standalone/.next
+          cp -r .next/static .next/standalone/.next/static
 
       - name: Create deployment ZIP
         run: |
           cd .next/standalone
           zip -r ../../nextjs-app.zip .
 
-      - name: Upload deployment ZIP
+      - name: Verify deployment ZIP
+        run: |
+          test -f nextjs-app.zip
+          unzip -l nextjs-app.zip | grep -q 'server.js'
+
+      - name: Upload deployment artifact
         uses: actions/upload-artifact@v4
         with:
           name: nextjs-app
           path: nextjs-app.zip
+          if-no-files-found: error
 
   deploy:
     runs-on: ubuntu-latest
@@ -54,10 +73,16 @@ jobs:
       contents: read
 
     steps:
-      - name: Download deployment ZIP
+      - name: Download deployment artifact
         uses: actions/download-artifact@v4
         with:
           name: nextjs-app
+          path: .
+
+      - name: Verify downloaded artifact
+        run: |
+          test -f nextjs-app.zip
+          unzip -l nextjs-app.zip | grep -q 'server.js'
 
       - name: Login to Azure
         uses: azure/login@v2
@@ -66,9 +91,11 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_8282A7AC3E9741EA94878253C0F6CC9E }}
 
-      - name: Deploy ZIP to Azure Web App
+      - name: Deploy standalone Next.js application
         uses: azure/webapps-deploy@v3
         with:
-          app-name: khalid-ai-chat
+          app-name: ${{ env.AZURE_WEBAPP_NAME }}
           slot-name: Production
           package: ./nextjs-app.zip
+          startup-command: node server.js
+          clean: true
